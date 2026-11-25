@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Labo ML : prédire le frittage micro-ondes</title>
+<style>:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f4f1ea;--fg:#10222e;--card:#e6e0d3;--acc:#b5470f;--teal:#17695f;--mut:#4a5c68;--ok:#17695f;--ko:#a32020;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10222e;--fg:#f4f1ea;--card:#1b3544;--acc:#f08a4b;--teal:#5fd0c0;--mut:#a9b8c2;--ok:#5fd0c0;--ko:#ff8a80;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#10222e;--fg:#f4f1ea;--card:#1b3544;--acc:#f08a4b;--teal:#5fd0c0;--mut:#a9b8c2;--ok:#5fd0c0;--ko:#ff8a80;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:860px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:26px;margin:0 0 4px}.sub{color:var(--mut);margin:0 0 16px}
+.card{background:var(--card);border-radius:14px;padding:14px 16px;margin-bottom:12px}
+label{display:flex;justify-content:space-between;font-weight:600;margin-bottom:6px}
+input[type=range]{width:100%;accent-color:var(--acc)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:12px}
+.m{background:var(--card);border-radius:14px;padding:12px 14px}.m b{display:block;font-size:26px;color:var(--acc)}.m span{color:var(--mut);font-size:14px}
+button{font:inherit;border:0;border-radius:10px;padding:8px 14px;background:var(--acc);color:var(--bg);font-weight:700;cursor:pointer}
+.note{color:var(--mut);font-size:13px}.ok{color:var(--ok);font-weight:700}.ko{color:var(--ko);font-weight:700}
+
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:6px 4px;text-align:right}th:first-child,td:first-child{text-align:left}
+tr.t{cursor:pointer}tr.t:hover{background:rgba(127,127,127,.15)}tr.sel{outline:2px solid var(--acc)}
+.warn{color:var(--ko);font-weight:600;margin-top:6px}
+</style></head><body><main>
+<h1>Labo ML : prédire sans simuler</h1>
+<p class="sub">Un petit réseau de neurones (2 entrées → 6 neurones → 2 sorties) entraîné sur 21 de nos simulations prédit le temps de chauffe et l’écart cœur – bord. Il est validé sur 6 simulations qu’il n’a jamais vues.</p>
+<div class="card"><label><span>Puissance absorbée</span><span id="pv"></span></label><input id="p" type="range" min="40" max="130" step="1" value="70">
+<label style="margin-top:10px"><span>Épaisseur d’isolant</span><span id="iv"></span></label><input id="i" type="range" min="5" max="30" step="1" value="15"></div>
+<div class="grid">
+<div class="m"><b id="m1"></b><span>Temps prédit pour 1400 °C</span></div>
+<div class="m"><b id="m2"></b><span>Écart cœur – bord prédit</span></div>
+<div class="m"><b id="m3"></b><span id="m3l">Simulation de référence</span></div></div>
+<div id="w" class="warn"></div>
+<div class="card"><b>Cas de test : la simulation contre le réseau</b>
+<table id="tb"><tr><th>Cas</th><th>Temps simulé</th><th>Temps ML</th><th>Erreur</th><th>ΔT simulé</th><th>ΔT ML</th></tr></table>
+<p class="note" id="sc" style="margin:8px 0 0"></p></div>
+<p class="note">Clique sur une ligne pour régler les curseurs sur ce cas. Entraînement sur 21 points : 3 réglages de la grille n’atteignent pas 1400 °C et sont exclus. Le réseau n’est fiable que dans la plage simulée (40 à 130 W, 5 à 30 mm). Modèle physique simplifié : source uniforme, sans retrait ni champ électromagnétique.</p>
+</main>
+<script>
+const M={"W1":[[2.19202,-0.86508,-1.57825,-1.56168,1.17601,-0.73582],[-0.14166,1.13799,-3.036,1.82303,-0.3786,-1.16003]],"b1":[1.81336,-1.30169,-3.41589,1.6291,0.1266,0.34243],"W2":[[-1.29139,0.37287],[0.55878,-1.14982],[1.05099,1.40304],[0.52441,-0.7046],[-1.07572,0.83577],[0.90339,-1.29483]],"b2":[2.03655,0.7334],"ym":[5.55501532089455,63.476190476190474],"ys":[0.6557494683993039,7.768857534560037],"train":[[40,20,888,49.4],[40,30,870,48.8],[50,10,532,57.6],[50,20,494,53.8],[50,30,496,53.9],[60,5,494,71.5],[60,10,350,59.1],[60,20,348,57.6],[60,30,348,57.6],[80,5,230,72.0],[80,10,216,62.8],[80,20,218,63.4],[80,30,218,63.4],[100,5,160,72.6],[100,10,158,67.2],[100,20,158,67.6],[100,30,158,67.6],[130,5,110,72.9],[130,10,110,71.2],[130,20,110,71.5],[130,30,110,71.5]],"test":[[70,15,268,60.6],[90,8,182,65.5],[55,25,408,55.8],[110,12,138,68.9],[45,15,644,52.7],[120,6,122,70.3]],"err":[1.4523114966127622,0.16189813230874386,2.9639168101350175,1.1080091724389132]};const $=id=>document.getElementById(id);
+function pred(P,I){const x=[Math.log(P)-Math.log(75),(I-17.5)/12.5];
+ const h=M.b1.map((b,j)=>Math.tanh(x[0]*M.W1[0][j]+x[1]*M.W1[1][j]+b));
+ const o=[0,1].map(k=>h.reduce((s,v,j)=>s+v*M.W2[j][k],M.b2[k])*M.ys[k]+M.ym[k]);
+ return[Math.exp(o[0]),o[1]]}
+function fmt(s){s=Math.round(s);return Math.floor(s/60)+" min "+String(s%60).padStart(2,"0")+" s"}
+function find(P,I){return M.test.find(r=>r[0]==P&&r[1]==I)||M.train.find(r=>r[0]==P&&r[1]==I)}
+function upd(){const P=+$("p").value,I=+$("i").value,[t,d]=pred(P,I);
+ $("pv").textContent=P+" W";$("iv").textContent=I+" mm";
+ $("m1").textContent=fmt(t);$("m2").textContent=d.toFixed(0)+" K";
+ const r=find(P,I);
+ $("m3").textContent=r?fmt(r[2])+" · "+r[3].toFixed(0)+" K":"non simulé";
+ $("m3l").textContent=r?"Simulation de référence (erreur du temps : "+(Math.abs(t-r[2])/r[2]*100).toFixed(1)+" %)":"Réglage absent des simulations : la prédiction est une interpolation";
+ $("w").textContent=((P<45&&I<15)||(P<55&&I<7))?"Zone où nos simulations n’atteignent pas 1400 °C : prédiction non fiable.":"";
+ document.querySelectorAll("tr.t").forEach(e=>e.classList.toggle("sel",e.dataset.p==P&&e.dataset.i==I))}
+M.test.forEach(r=>{const[t,d]=pred(r[0],r[1]);const tr=document.createElement("tr");tr.className="t";tr.dataset.p=r[0];tr.dataset.i=r[1];
+ tr.innerHTML="<td>"+r[0]+" W · "+r[1]+" mm</td><td>"+Math.round(r[2])+" s</td><td>"+Math.round(t)+" s</td><td>"+(Math.abs(t-r[2])/r[2]*100).toFixed(1)+" %</td><td>"+r[3].toFixed(1)+" K</td><td>"+d.toFixed(1)+" K</td>";
+ tr.onclick=()=>{$("p").value=r[0];$("i").value=r[1];upd()};$("tb").appendChild(tr)});
+$("sc").textContent="Erreur moyenne sur les 21 cas d’entraînement : "+M.err[0].toFixed(1)+" % sur le temps, "+M.err[1].toFixed(1)+" K sur ΔT. Sur les 6 cas de test : "+M.err[2].toFixed(1)+" % et "+M.err[3].toFixed(1)+" K.";
+$("p").oninput=upd;$("i").oninput=upd;upd();
+</script></body></html>
